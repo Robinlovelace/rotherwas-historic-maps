@@ -1,0 +1,13 @@
+.bash_history
+.rstudio/
+.Rproj.user
+.Rhistory
+.RData
+*.html
+*.pdf
+*.Rds
+*.tif
+*.TIF
+*.jpeg
+*.jpg
+*.JPG
