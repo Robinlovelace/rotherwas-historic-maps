@@ -3,6 +3,11 @@
 
 # Creating interactive web maps from raster datasets in R
 
+The examples below show how to create interactive maps, for publication
+online, from old photos. Other resources explaining how to do this have
+been created, including this:
+<https://kokoalberti.com/articles/georeferencing-and-digitizing-old-maps-with-gdal/>
+
 To run this code you’ll need the following R packages installed:
 
 ``` r
@@ -96,9 +101,9 @@ for(j in 1:nrow(f_df)) {
 sum(f_df$f_size)
 #> [1] 1132.156
 sum(f_df$f_size_res, na.rm = TRUE)
-#> [1] 18.81059
+#> [1] 17.21778
 sum(f_df$f_size) / sum(f_df$f_size_res, na.rm = TRUE)
-#> [1] 60.18713
+#> [1] 65.75502
 plot(f_df$f_size, f_df$f_size_res)
 ```
 
@@ -111,7 +116,7 @@ knitr::kable(head(f_df[c(1, 2, 4)]), digits = 0)
 |    | f                                                | f\_size | f\_size\_res |
 | -- | :----------------------------------------------- | ------: | -----------: |
 | 20 | NLS\_40\_01.tif                                  |     666 |            2 |
-| 22 | RAF\_1947\_CO35\_6\_0035\_5133\_RS\_modified.tif |     181 |            4 |
+| 22 | RAF\_1947\_CO35\_6\_0035\_5133\_RS\_modified.tif |     181 |            2 |
 | 23 | RAF\_1947\_CO35\_6\_0035\_5133\_RS.tif           |     149 |            2 |
 | 6  | DSC03273.TIF                                     |      72 |            2 |
 | 2  | 1836\_Bryant\_combined.tif                       |      10 |            1 |
@@ -171,6 +176,8 @@ sensible to try a method first on a small dataset and only after
 tweaking the methods/settings on things that run quickly, run it on the
 whole dataset.
 
+We will use the smaller .tif files for now.
+
 ## Vector data
 
 Vector data is available from a wide range of places. OpenStreetMap is a
@@ -190,6 +197,10 @@ plot(rotherwas_boundary)
 
 ![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
+``` r
+# write_sf(rotherwas_boundary, "rotherwas_boundary.geojson") # save the file
+```
+
 We can plot this in an interactive mapping environment as follows:
 
 ``` r
@@ -198,3 +209,77 @@ tm_shape(rotherwas_boundary) +
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+
+## Georectification
+
+QGIS can georectify images using the [Georeferencer
+plugin](https://docs.qgis.org/testing/en/docs/user_manual/plugins/plugins_georeferencer.html),
+as illustrated below.
+
+![](qgis-screenshot.png)<!-- -->
+
+The small .tif files that were created using the methods above were
+saved in a folder called `georectified`. Note: you can remove black
+edges and reduce files sizes in QGIS’s save options, which is an
+interface to GDAL settings.
+
+## Tiling
+
+To create a ‘slippy map’ that users can zoom in and out, we can build a
+tile pyramid with GDAL. We will do this from a shell, in this case
+`bash`, the default shell on many Linux systems (see
+<https://gdal.org/programs/gdal2tiles.html> for details)
+
+``` bash
+gdal2tiles.py --zoom=2-18 -r near georectified/raf-47.tif t-raf-47
+```
+
+This tiled results can be viewed by opening the file
+`raf-1947-tiles/leaflet.html`, which looks like this:
+
+``` r
+browseURL("t-raf-47/leaflet.html", browser = "firefox")
+```
+
+![](tiles-leaflet-html.png)<!-- -->
+
+## Serving the tiles
+
+Tiles can be served simply by uploading them somewhere that will allow
+people to access the static .tif files, a ‘static file server’ that does
+not need to do anything with the files. One way of doing this is using
+GitHub’s free ‘gh-pages’ file serving system. After creating a new repo,
+this can be done as follows from `bash` (source: the
+[deploy\_site\_github
+vignette](https://pkgdown.r-lib.org/reference/deploy_site_github.html)
+from the pkgdown R package)
+
+``` bash
+git clone git@github.com:foss4lh/rotherwas-tiles.git
+cd rotherwas-tiles
+git checkout --orphan gh-pages
+git rm -rf .
+git commit --allow-empty -m 'Initial gh-pages commit'
+git push origin gh-pages
+cd ..
+cp -Rv t-raf-47 rotherwas-tiles
+```
+
+Once you have pushed the new tiles online, you can see them, e.g. from
+here:
+<https://foss4lh.github.io/rotherwas-tiles/t-raf-47/15/16137/21947.png>
+
+Now we can use the route of the URL for these tiles to create an
+interactive
+map:
+
+``` r
+tiles_url = "https://foss4lh.github.io/rotherwas-tiles/t-raf-47/{z}/{y}/{x}"
+tm_basemap(tiles_url, tms = TRUE) +
+tm_shape(rotherwas_boundary) +
+  tm_borders() +
+  tm_tiles(server = tiles_url, tms = TRUE) +
+  tm_view(set.zoom.limits = c(14, 15))
+```
+
+![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
