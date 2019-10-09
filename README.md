@@ -190,12 +190,15 @@ osm_data = opq(bbox = "hereford uk") %>%
   add_osm_feature("name", "Rotherwas Industrial Estate") %>% 
   osmdata_sf()
 rotherwas_boundary = osm_data$osm_polygons
+```
+
+``` r
 class(rotherwas_boundary)
 #> [1] "sf"         "data.frame"
 plot(rotherwas_boundary)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
 
 ``` r
 # write_sf(rotherwas_boundary, "rotherwas_boundary.geojson") # save the file
@@ -208,7 +211,7 @@ tm_shape(rotherwas_boundary) +
   tm_borders()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
 
 ## Georectification
 
@@ -266,20 +269,49 @@ cp -Rv t-raf-47 rotherwas-tiles
 ```
 
 Once you have pushed the new tiles online, you can see them, e.g. from
-here:
-<https://foss4lh.github.io/rotherwas-tiles/t-raf-47/15/16137/21947.png>
+here: <https://foss4lh.github.io/rotherwas-tiles/t-raf-47/leaflet.html>
 
 Now we can use the route of the URL for these tiles to create an
 interactive
 map:
 
 ``` r
-tiles_url = "https://foss4lh.github.io/rotherwas-tiles/t-raf-47/{z}/{y}/{x}"
-tm_basemap(tiles_url, tms = TRUE) +
-tm_shape(rotherwas_boundary) +
-  tm_borders() +
-  tm_tiles(server = tiles_url, tms = TRUE) +
-  tm_view(set.zoom.limits = c(14, 15))
+# this tile works: https://foss4lh.github.io/rotherwas-tiles/t-raf-47/13/4034/5488.png
+tiles_url = "https://foss4lh.github.io/rotherwas-tiles/t-raf-47/{z}/{x}/{y}.png"
+  # tm_basemap(server = "https://npttile.vs.mythic-beasts.com/commute/v2/dutch/{z}/{x}/{y}.png", tms = T) +
+# tm_basemap(tiles_url, tms = TRUE) +
+tm_tiles(server = tiles_url, tms = TRUE) +
+  tm_view(set.zoom.limits = c(14, 15)) +
+  tm_shape(rotherwas_boundary) +
+  tm_borders(col = "red", lwd = 5) 
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+
+## Creating and publishing a map
+
+An interactive map with more options can be created with JavaScript
+mapping libraries such as Leaflet or OpenLayers, or with higher level
+mapping packages such as the R package tmap, demonstrated above. Good
+materials on each exist online. An example of a slightly more
+sophisticated map is demonstrated below.
+
+``` r
+m = tm_basemap(server = leaflet::providers$OpenTopoMap) +
+  tm_tiles(server = tiles_url, tms = TRUE) +
+  tm_view(bbox = tmaptools::bb(rotherwas_boundary, 6)) +
+  tm_shape(rotherwas_boundary) +
+  tm_borders(col = "red", lwd = 5) +
+  tm_polygons(alpha = 0.2, col = "red") +
+  tm_markers(text = "name") 
+tmap_save(m, "map1.html")
+#> Warning: One tm layer group has duplicated layer types, which are omitted.
+#> To draw multiple layers of the same type, use multiple layer groups (i.e.
+#> specify tm_shape prior to each of them).
+#> Interactive map saved to /home/robin/Documents/rotherwas-historic-maps/map1.html
+file.rename("map1.html", "rotherwas-tiles/map1.html")
+#> [1] TRUE
+```
+
+The result can be seen here:
+<https://foss4lh.github.io/rotherwas-tiles/map1.html>
